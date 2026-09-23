@@ -1,16 +1,38 @@
-# React + Vite
+# GameHeroes – Frontend (video-game-frontend)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Interface web en **React 19 + Vite** pour gérer une collection de personnages de jeux vidéo.
+Elle utilise l'API ASP.NET Core : [videoGameCharacterApi](https://github.com/eouni5870-prog/videoGameCharacterApi).
 
-Currently, two official plugins are available:
+## Fonctionnalités
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Liste des personnages en **cartes avec photo**, rôle et niveau
+- **Recherche** par nom, **filtres** par jeu et par rôle, **pagination**
+- **Fiche détaillée** d'un personnage
+- **Connexion / création de compte** (jeton JWT)
+- **Ajouter, modifier, supprimer** personnages et jeux (utilisateur connecté)
+- **Upload de photo** avec aperçu
+- Design sombre « gaming », adapté au mobile
 
-## React Compiler
+## Organisation
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```
+src/
+├── main.jsx        → point d'entrée
+├── App.jsx         → navigation et connexion
+├── api.js          → toutes les requêtes vers l'API
+├── useAuth.js      → utilisateur connecté (localStorage)
+└── components/     → Header, CharactersPage, CharacterCard, CharacterDetail,
+                      CharacterForm, ImagePicker, GamesPage, GameForm,
+                      AuthForm, Modal, Pagination, ErrorMessage
+```
 
-## Expanding the Oxlint configuration
+## Lancer le projet
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+1. Lancer d'abord l'API (backend) sur https://localhost:7062
+2. Première fois : `npm install`
+3. `npm run dev`
+4. Ouvrir http://localhost:5173
+
+## Auteur
+
+Eya Ouni – 3ème année Génie Logiciel
