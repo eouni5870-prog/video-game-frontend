@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import CharacterCard, { displayName } from './CharacterCard'
 import CharacterDetail from './CharacterDetail'
+import Compare from './Compare'
 import CharacterForm, { ROLES } from './CharacterForm'
 import ErrorMessage from './ErrorMessage'
 import Modal from './Modal'
 import Pagination from './Pagination'
+import CardSkeleton from './CardSkeleton'
+import { useToast } from '../toast'
 
 const PAGE_SIZE = 12
 
-function CharactersPage({ token, onUnauthorized, onAskLogin, initialGameId = '' }) {
+function CharactersPage({ token, username, isAdmin = false, onUnauthorized, onAskLogin, initialGameId = '' }) {
   const [query, setQuery] = useState({
     search: '',
     gameId: initialGameId,
@@ -25,11 +28,67 @@ function CharactersPage({ token, onUnauthorized, onAskLogin, initialGameId = '' 
   const [editing, setEditing] = useState(null) // null = closed, 'new' = add, object = edit
   const [viewing, setViewing] = useState(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const toast = useToast()
+  const [favoriteIds, setFavoriteIds] = useState(() => new Set())
+  const [showFavorites, setShowFavorites] = useState(false)
+  const [favorites, setFavorites] = useState([])
+  const [compared, setCompared] = useState([])
+  const [showCompare, setShowCompare] = useState(false)
 
   // Games for the filter and the form
   useEffect(() => {
     api.getGames().then(setGames).catch(() => setGames([]))
   }, [reloadKey])
+
+  // Ids of my favorites (to fill the hearts)
+  useEffect(() => {
+    if (!token) {
+      setFavoriteIds(new Set())
+      setShowFavorites(false)
+      return
+    }
+    api
+      .getFavoriteIds(token)
+      .then((ids) => setFavoriteIds(new Set(ids)))
+      .catch(() => setFavoriteIds(new Set()))
+  }, [token])
+
+  // My favorites list, when the "Mes favoris" filter is on
+  useEffect(() => {
+    if (!showFavorites || !token) return
+    api.getFavorites(token).then(setFavorites).catch(setError)
+  }, [showFavorites, token, favoriteIds, reloadKey])
+
+  const toggleFavorite = async (character) => {
+    if (!token) {
+      onAskLogin()
+      return
+    }
+    const wasFavorite = favoriteIds.has(character.id)
+    const next = new Set(favoriteIds)
+    if (wasFavorite) next.delete(character.id)
+    else next.add(character.id)
+    setFavoriteIds(next) // update the heart right away
+    try {
+      if (wasFavorite) await api.removeFavorite(character.id, token)
+      else await api.addFavorite(character.id, token)
+      toast(wasFavorite ? 'Retiré des favoris' : `${displayName(character)} ajouté aux favoris ♥`)
+      setReloadKey((k) => k + 1)
+    } catch (err) {
+      setFavoriteIds(favoriteIds) // undo
+      if (err.status === 401) onUnauthorized()
+      else toast(err.message, 'error')
+    }
+  }
+
+  // Pick up to 2 characters to compare (picking a 3rd replaces the oldest)
+  const toggleCompare = (character) => {
+    setCompared((list) =>
+      list.some((c) => c.id === character.id)
+        ? list.filter((c) => c.id !== character.id)
+        : [...list, character].slice(-2),
+    )
+  }
 
   // Wait 300 ms after typing before searching
   useEffect(() => {
@@ -66,6 +125,7 @@ function CharactersPage({ token, onUnauthorized, onAskLogin, initialGameId = '' 
     if (!window.confirm(`Supprimer ${name} ?`)) return
     try {
       await api.deleteCharacter(character.id, token)
+      toast(`${name} supprimé`)
       setReloadKey((k) => k + 1)
     } catch (err) {
       if (err.status === 401) onUnauthorized()
@@ -74,6 +134,7 @@ function CharactersPage({ token, onUnauthorized, onAskLogin, initialGameId = '' 
   }
 
   const handleSaved = () => {
+    toast(editing === 'new' ? 'Personnage ajouté' : 'Personnage modifié')
     setEditing(null)
     setReloadKey((k) => k + 1)
   }
@@ -92,9 +153,11 @@ function CharactersPage({ token, onUnauthorized, onAskLogin, initialGameId = '' 
               : 'Chargement de la collection…'}
           </p>
         </div>
-        <button type="button" className="button big" onClick={() => (token ? setEditing('new') : onAskLogin())}>
-          + Nouveau personnage
-        </button>
+        {isAdmin && (
+          <button type="button" className="button big" onClick={() => setEditing('new')}>
+            + Nouveau personnage
+          </button>
+        )}
       </div>
 
       <div className="filters">
@@ -120,6 +183,14 @@ function CharactersPage({ token, onUnauthorized, onAskLogin, initialGameId = '' 
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          className={showFavorites ? 'button fav-filter on' : 'button secondary fav-filter'}
+          onClick={() => (token ? setShowFavorites(!showFavorites) : onAskLogin())}
+          aria-pressed={showFavorites}
+        >
+          {showFavorites ? '♥' : '♡'} Mes favoris
+        </button>
         {hasFilters && (
           <button type="button" className="button secondary" onClick={resetFilters}>
             Effacer
@@ -129,43 +200,111 @@ function CharactersPage({ token, onUnauthorized, onAskLogin, initialGameId = '' 
 
       <ErrorMessage error={error} />
 
-      {loading && !result && <p className="muted">Chargement…</p>}
+      {showFavorites ? (
+        favorites.length === 0 ? (
+          <div className="empty">
+            <span className="empty-icon">♡</span>
+            Aucun favori pour le moment. Cliquez sur le cœur d'une carte pour l'ajouter.
+          </div>
+        ) : (
+          <div className="grid">
+            {favorites.map((character) => (
+              <CharacterCard
+                key={character.id}
+                character={character}
+                canEdit={isAdmin}
+                isFavorite={favoriteIds.has(character.id)}
+                onToggleFavorite={toggleFavorite}
+                isCompared={compared.some((c) => c.id === character.id)}
+                onToggleCompare={toggleCompare}
+                onOpen={setViewing}
+                onEdit={setEditing}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        )
+      ) : (
+        <>
+          {loading && !result && <CardSkeleton />}
 
-      {result && result.items.length === 0 && !loading && (
-        <div className="empty">
-          <span className="empty-icon">🕹️</span>
-          {hasFilters ? 'Aucun personnage ne correspond à votre recherche.' : 'Aucun personnage pour le moment.'}
-        </div>
-      )}
+          {result && result.items.length === 0 && !loading && (
+            <div className="empty">
+              <span className="empty-icon">🕹️</span>
+              {hasFilters ? 'Aucun personnage ne correspond à votre recherche.' : 'Aucun personnage pour le moment.'}
+            </div>
+          )}
 
-      {result && result.items.length > 0 && (
-        <div className={loading ? 'grid loading' : 'grid'}>
-          {result.items.map((character) => (
-            <CharacterCard
-              key={character.id}
-              character={character}
-              canEdit={Boolean(token)}
-              onOpen={setViewing}
-              onEdit={setEditing}
-              onDelete={handleDelete}
+          {result && result.items.length > 0 && (
+            <div className={loading ? 'grid loading' : 'grid'}>
+              {result.items.map((character) => (
+                <CharacterCard
+                  key={character.id}
+                  character={character}
+                  canEdit={isAdmin}
+                  isFavorite={favoriteIds.has(character.id)}
+                  onToggleFavorite={toggleFavorite}
+                  isCompared={compared.some((c) => c.id === character.id)}
+                  onToggleCompare={toggleCompare}
+                  onOpen={setViewing}
+                  onEdit={setEditing}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          )}
+
+          {result && (
+            <Pagination
+              page={result.page}
+              totalPages={result.totalPages}
+              onChange={(page) => setQuery({ ...query, page })}
             />
-          ))}
+          )}
+        </>
+      )}
+
+      {compared.length > 0 && (
+        <div className="compare-bar">
+          <span>
+            ⚔️ {compared.map((c) => displayName(c)).join(' vs ')}
+            {compared.length === 1 && <span className="muted"> — choisissez un 2e personnage</span>}
+          </span>
+          <div className="compare-bar-actions">
+            <button type="button" className="button secondary small" onClick={() => setCompared([])}>
+              Annuler
+            </button>
+            <button type="button" className="button small" disabled={compared.length < 2} onClick={() => setShowCompare(true)}>
+              Comparer
+            </button>
+          </div>
         </div>
       )}
 
-      {result && (
-        <Pagination
-          page={result.page}
-          totalPages={result.totalPages}
-          onChange={(page) => setQuery({ ...query, page })}
-        />
+      {showCompare && compared.length === 2 && (
+        <Modal title="Comparaison" onClose={() => setShowCompare(false)}>
+          <Compare characters={compared} />
+        </Modal>
       )}
 
       {viewing && (
         <Modal title={displayName(viewing)} onClose={() => setViewing(null)}>
           <CharacterDetail
             character={viewing}
-            canEdit={Boolean(token)}
+            canEdit={isAdmin}
+            isFavorite={favoriteIds.has(viewing.id)}
+            onToggleFavorite={toggleFavorite}
+            token={token}
+            username={username}
+            onAskLogin={() => {
+              setViewing(null)
+              onAskLogin()
+            }}
+            onReviewsChanged={() => setReloadKey((k) => k + 1)}
+            onUnauthorized={() => {
+              setViewing(null)
+              onUnauthorized()
+            }}
             onEdit={(c) => {
               setViewing(null)
               setEditing(c)

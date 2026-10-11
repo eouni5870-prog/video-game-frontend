@@ -3,13 +3,17 @@ import { api } from '../api'
 import ErrorMessage from './ErrorMessage'
 import GameForm from './GameForm'
 import Modal from './Modal'
+import GameCover from './GameCover'
+import { formatPrice } from '../format'
+import { useToast } from '../toast'
 
-function GamesPage({ token, onUnauthorized, onAskLogin, onShowCharacters }) {
+function GamesPage({ token, isAdmin = false, onUnauthorized, onShowCharacters }) {
   const [games, setGames] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const toast = useToast()
 
   useEffect(() => {
     let ignore = false
@@ -29,6 +33,7 @@ function GamesPage({ token, onUnauthorized, onAskLogin, onShowCharacters }) {
     if (!window.confirm(`Supprimer le jeu ${game.name} ?`)) return
     try {
       await api.deleteGame(game.id, token)
+      toast(`${game.name} supprimé`)
       setReloadKey((k) => k + 1)
     } catch (err) {
       if (err.status === 401) onUnauthorized()
@@ -46,9 +51,11 @@ function GamesPage({ token, onUnauthorized, onAskLogin, onShowCharacters }) {
             {loading ? 'Chargement…' : `${games.length} jeu${games.length > 1 ? 'x' : ''}`}
           </p>
         </div>
-        <button type="button" className="button big" onClick={() => (token ? setEditing('new') : onAskLogin())}>
-          + Nouveau jeu
-        </button>
+        {isAdmin && (
+          <button type="button" className="button big" onClick={() => setEditing('new')}>
+            + Nouveau jeu
+          </button>
+        )}
       </div>
 
       <ErrorMessage error={error} />
@@ -67,11 +74,11 @@ function GamesPage({ token, onUnauthorized, onAskLogin, onShowCharacters }) {
           {games.map((game) => (
             <article key={game.id} className="game-card">
               <button type="button" className="game-main" onClick={() => onShowCharacters(game.id)}>
-                <span className="game-icon">{game.name.charAt(0).toUpperCase()}</span>
+                <GameCover game={game} className="icon" />
                 <span className="game-info">
                   <strong>{game.name}</strong>
                   <span>
-                    {game.genre} · {game.releaseYear}
+                    {game.genre} · {game.releaseYear} · <b className="price">{formatPrice(game.price)}</b>
                   </span>
                 </span>
                 <span className="game-count">
@@ -79,7 +86,7 @@ function GamesPage({ token, onUnauthorized, onAskLogin, onShowCharacters }) {
                   <small>perso{game.characterCount > 1 ? 's' : ''}</small>
                 </span>
               </button>
-              {token && (
+              {isAdmin && (
                 <div className="card-actions">
                   <button type="button" className="button ghost small" onClick={() => setEditing(game)}>
                     ✏️ Modifier
@@ -100,6 +107,7 @@ function GamesPage({ token, onUnauthorized, onAskLogin, onShowCharacters }) {
             game={editing === 'new' ? null : editing}
             token={token}
             onSaved={() => {
+              toast(editing === 'new' ? 'Jeu ajouté' : 'Jeu modifié')
               setEditing(null)
               setReloadKey((k) => k + 1)
             }}

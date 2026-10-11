@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import ErrorMessage from './ErrorMessage'
 import ImagePicker from './ImagePicker'
+import { STATS } from '../stats'
 
 export const ROLES = ['Hero', 'Villain', 'Support']
 
@@ -14,6 +15,10 @@ function CharacterForm({ character, games, token, onSaved, onUnauthorized }) {
     level: character?.level ?? 1,
     imageUrl: character?.imageUrl ?? '',
     description: character?.description ?? '',
+    strength: character?.strength ?? 50,
+    speed: character?.speed ?? 50,
+    magic: character?.magic ?? 50,
+    defense: character?.defense ?? 50,
   })
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -32,6 +37,10 @@ function CharacterForm({ character, games, token, onSaved, onUnauthorized }) {
       level: Number(form.level),
       imageUrl: form.imageUrl.trim() || null,
       description: form.description.trim() || null,
+      strength: Number(form.strength),
+      speed: Number(form.speed),
+      magic: Number(form.magic),
+      defense: Number(form.defense),
     }
 
     try {
@@ -93,6 +102,19 @@ function CharacterForm({ character, games, token, onSaved, onUnauthorized }) {
           ))}
         </select>
       </label>
+
+      <fieldset className="stat-sliders">
+        <legend>Stats</legend>
+        {STATS.map((s) => (
+          <label key={s.key} className="stat-slider">
+            <span>
+              {s.icon} {s.label}
+            </span>
+            <input type="range" min={0} max={100} value={form[s.key]} onChange={update(s.key)} />
+            <strong>{form[s.key]}</strong>
+          </label>
+        ))}
+      </fieldset>
 
       <label>
         Description

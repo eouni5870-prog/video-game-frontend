@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api'
 import ErrorMessage from './ErrorMessage'
+import ImagePicker from './ImagePicker'
 
 function GameForm({ game, token, onSaved, onUnauthorized }) {
   const isNew = !game
@@ -8,6 +9,8 @@ function GameForm({ game, token, onSaved, onUnauthorized }) {
     name: game?.name ?? '',
     genre: game?.genre ?? '',
     releaseYear: game?.releaseYear ?? new Date().getFullYear(),
+    price: game?.price ?? 99,
+    coverUrl: game?.coverUrl ?? '',
   })
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -18,7 +21,13 @@ function GameForm({ game, token, onSaved, onUnauthorized }) {
     e.preventDefault()
     setError(null)
     setSaving(true)
-    const body = { name: form.name.trim(), genre: form.genre.trim(), releaseYear: Number(form.releaseYear) }
+    const body = {
+      name: form.name.trim(),
+      genre: form.genre.trim(),
+      releaseYear: Number(form.releaseYear),
+      price: Number(form.price),
+      coverUrl: form.coverUrl.trim() || null,
+    }
     try {
       if (isNew) await api.createGame(body, token)
       else await api.updateGame(game.id, body, token)
@@ -34,6 +43,13 @@ function GameForm({ game, token, onSaved, onUnauthorized }) {
   return (
     <form className="form" onSubmit={handleSubmit}>
       <ErrorMessage error={error} />
+
+      <ImagePicker
+        value={form.coverUrl}
+        onChange={(url) => setForm((f) => ({ ...f, coverUrl: url }))}
+        token={token}
+        onError={(err) => (err.status === 401 ? onUnauthorized() : setError(err))}
+      />
 
       <label>
         Nom *
@@ -57,6 +73,11 @@ function GameForm({ game, token, onSaved, onUnauthorized }) {
           />
         </label>
       </div>
+
+      <label>
+        Prix (DT)
+        <input type="number" min={0} max={1000} step="0.01" value={form.price} onChange={update('price')} required />
+      </label>
 
       <button type="submit" className="button" disabled={saving}>
         {saving ? 'Enregistrement…' : isNew ? 'Ajouter le jeu' : 'Enregistrer'}

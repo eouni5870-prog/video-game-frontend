@@ -5,14 +5,15 @@ const STORAGE_KEY = 'vgc-auth'
 function loadAuth() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
-    if (saved?.token && new Date(saved.expiresAt) > new Date()) return saved
+    // Sessions saved before roles existed have no "role": ask to log in again
+    if (saved?.token && saved.role && new Date(saved.expiresAt) > new Date()) return saved
   } catch {
     // ignore broken storage
   }
   return null
 }
 
-// Keeps the logged-in user ({ username, token, expiresAt }) and remembers it after a page refresh.
+// Keeps the logged-in user ({ username, role, token, expiresAt }) and remembers it after a page refresh.
 export function useAuth() {
   const [auth, setAuth] = useState(loadAuth)
 
@@ -34,5 +35,7 @@ export function useAuth() {
     }
   }
 
-  return { auth, signIn, signOut }
+  const isAdmin = auth?.role === 'Admin'
+
+  return { auth, isAdmin, signIn, signOut }
 }

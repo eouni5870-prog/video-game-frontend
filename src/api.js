@@ -81,6 +81,30 @@ export const api = {
   updateGame: (id, game, token) => request(`/api/Games/${id}`, { method: 'PUT', body: game, token }),
   deleteGame: (id, token) => request(`/api/Games/${id}`, { method: 'DELETE', token }),
 
+  // Favorites (logged-in user)
+  getFavorites: (token) => request('/api/Favorites', { token }),
+  getFavoriteIds: (token) => request('/api/Favorites/ids', { token }),
+  addFavorite: (characterId, token) => request(`/api/Favorites/${characterId}`, { method: 'POST', token }),
+  removeFavorite: (characterId, token) => request(`/api/Favorites/${characterId}`, { method: 'DELETE', token }),
+
+  // Reviews (rating 1-5 + comment)
+  getReviews: (characterId) => request(`/api/VideoGameCharacters/${characterId}/reviews`),
+  saveReview: (characterId, review, token) =>
+    request(`/api/VideoGameCharacters/${characterId}/reviews`, { method: 'PUT', body: review, token }),
+  deleteReview: (characterId, token) =>
+    request(`/api/VideoGameCharacters/${characterId}/reviews`, { method: 'DELETE', token }),
+
+  // Shop (simulated purchases)
+  createOrder: (gameIds, token) => request('/api/Orders', { method: 'POST', body: { gameIds }, token }),
+  getOrders: (token) => request('/api/Orders', { token }),
+  getOwnedGameIds: (token) => request('/api/Orders/owned-game-ids', { token }),
+
+  // Admin (role "Admin" only)
+  getAdminStats: (token) => request('/api/Admin/stats', { token }),
+  getAdminUsers: (token) => request('/api/Admin/users', { token }),
+  setUserRole: (userId, role, token) =>
+    request(`/api/Admin/users/${userId}/role`, { method: 'PUT', body: { role }, token }),
+
   // Pictures: returns { url }
   uploadImage: (file, token) => {
     const form = new FormData()
